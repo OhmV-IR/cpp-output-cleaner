@@ -25,11 +25,11 @@ def call(String outputFolderPath, String dest = "package", boolean isDebug = fal
                 cd ${dest}
                 find . -type d -name CMakeFiles -print0 |
                 while IFS= read -r -d '' dir; do
-                  parent="$(dirname "$dir")"
-                  echo "Processing: $parent"
-                  rm -rf $parent/CMakeFiles
-                  rm -f $parent/*.cmake
-                  rm -f $parent/*.json
+                  parent="$(dirname "\$dir")"
+                  echo "Processing: \$parent"
+                  rm -rf \$parent/CMakeFiles
+                  rm -f \$parent/*.cmake
+                  rm -f \$parent/*.json
                 done
               )
 	  """
@@ -59,14 +59,14 @@ def call(String outputFolderPath, String dest = "package", boolean isDebug = fal
             ${dest}\\vcpkg_installed
     
             Get-ChildItem -Recurse -Directory -Filter "CMakeFiles" -Path "${dest}" | ForEach-Object {
-              $parent = $_.Parent.FullName
+              \$parent = \$_.Parent.FullName
               Write-Host "Processing: $parent"
-              Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $_.FullName
+              Remove-Item -Recurse -Force -ErrorAction SilentlyContinue \$_.FullName
               Remove-Item -Force -ErrorAction SilentlyContinue `
-              (Join-Path $parent "*.cmake"),
-              (Join-Path $parent "*.ilk"),
-              (Join-Path $parent "*.json")
-              ${isDebug == false ? "Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $parent "*.pdb") : "" }
+              (Join-Path \$parent "*.cmake"),
+              (Join-Path \$parent "*.ilk"),
+              (Join-Path \$parent "*.json")
+              ${isDebug == false ? "Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path \$parent "*.pdb") : "" }
             }
     """
   }
