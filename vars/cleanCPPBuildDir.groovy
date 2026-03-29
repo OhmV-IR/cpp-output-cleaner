@@ -60,7 +60,7 @@ def call(String outputFolderPath, String dest = "package", boolean isDebug = fal
     
             Get-ChildItem -Recurse -Directory -Filter "CMakeFiles" -Path "${dest}" | ForEach-Object {
               \$parent = \$_.Parent.FullName
-              Write-Host "Processing: $parent"
+              Write-Host "Processing: \$parent"
               Remove-Item -Recurse -Force -ErrorAction SilentlyContinue \$_.FullName
               Remove-Item -Force -ErrorAction SilentlyContinue `
               (Join-Path \$parent "*.cmake"),
