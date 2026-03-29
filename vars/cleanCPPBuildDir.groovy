@@ -10,7 +10,6 @@ def call(String outputFolderPath, String dest = "package", boolean isDebug = fal
             find "${dest}" -type d -name "CMakeFiles" -exec rm -rf {} +
             find "${dest}" -type d -name ".cmake" -exec rm -rf {} +
             find "${dest}" -type d -name "vcpkg_installed" -exec rm -rf {} +
-            ${isDebug ? "" : "find ${dest} -name '*.pdb' -delete"}
         """
     } else {
         pwsh """
@@ -21,11 +20,9 @@ def call(String outputFolderPath, String dest = "package", boolean isDebug = fal
             New-Item -ItemType Directory -Force -Path \$destPath | Out-Null
             Copy-Item -Recurse -Force "${outputFolderPath}/*" "\$destPath/"
 
-            # Define files to always remove
             \$targets = @("*.h", "*.cc", "*.cmake", "*.log", "auth.json", "build.ninja", "*.ilk", "compile_commands.json", "CMakeCache.txt")
-            if (-\$not \$isDebug) { \$targets += "*.pdb" }
+            if (-not \$isDebug) { \$targets += "*.pdb" }
 
-            # Perform cleanup
             Get-ChildItem -Path \$destPath -Include \$targets -Recurse | Remove-Item -Force -ErrorAction SilentlyContinue
             Get-ChildItem -Path \$destPath -Directory -Filter "CMakeFiles" -Recurse | Remove-Item -Recurse -Force
             Get-ChildItem -Path \$destPath -Directory -Filter ".cmake" -Recurse | Remove-Item -Recurse -Force
