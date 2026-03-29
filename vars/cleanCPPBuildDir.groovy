@@ -1,6 +1,5 @@
 def call(String outputFolderPath, String dest = "package", boolean isDebug = false) {
-    // We pass variables into the environment so the Shell/PowerShell can access them
-    // without Groovy's "smart" interpolation getting in the way.
+    // Inject variables into the environment to avoid Groovy interpolation drama
     withEnv([
         "DEST_DIR=${dest}",
         "SRC_DIR=${outputFolderPath}",
@@ -18,9 +17,9 @@ def call(String outputFolderPath, String dest = "package", boolean isDebug = fal
                 # 2. Copy contents
                 cp -r "$SRC_DIR/." "$DEST_DIR"
 
-                # 3. Clean root files (-f ignores missing files)
+                # 3. Root Level Clean (using wildcards to handle those .pb files)
                 rm -f "$DEST_DIR"/*.cc
-                rm -f "$DEST_DIR"/*.pb.h
+                rm -f "$DEST_DIR"/*.h
                 rm -f "$DEST_DIR"/auth.json
                 rm -f "$DEST_DIR"/.ninja_deps
                 rm -f "$DEST_DIR"/.ninja_log
@@ -32,13 +31,16 @@ def call(String outputFolderPath, String dest = "package", boolean isDebug = fal
                 rm -f "$DEST_DIR"/CMakeCache.txt
 
                 # 4. Deep clean subdirectories
+                # Uses POSIX-compliant find to avoid "read -d" errors on Ubuntu/Dash
                 cd "$DEST_DIR"
-                find . -type d -name "CMakeFiles" -print0 | while IFS= read -r -d '' dir; do
-                    parent=$(dirname "$dir")
-                    rm -rf "$dir"
-                    rm -f "$parent"/*.cmake
-                    rm -f "$parent"/*.json
-                done
+                find . -type d -name "CMakeFiles" -exec sh -c '
+                    for dir do
+                        parent=$(dirname "$dir")
+                        rm -rf "$dir"
+                        rm -f "$parent"/*.cmake
+                        rm -f "$parent"/*.json
+                    done
+                ' sh {} +
             '''
         } else {
             powershell '''
@@ -48,13 +50,13 @@ def call(String outputFolderPath, String dest = "package", boolean isDebug = fal
                 if (Test-Path $destPath) { Remove-Item -Recurse -Force $destPath }
                 New-Item -ItemType Directory -Force -Path $destPath | Out-Null
                 
-                # Copy with * to get contents
+                # Copying with * to ensure hidden files are included
                 Copy-Item -Recurse -Force "$($env:SRC_DIR)/*" "$destPath/"
 
                 $targets = @("*.h", "*.cc", "*.cmake", "*.log", "auth.json", "build.ninja", "*.ilk", "compile_commands.json", "CMakeCache.txt", ".ninja_deps", ".ninja_log")
                 if (-not $isDebug) { $targets += "*.pdb" }
 
-                # Suppress errors if files aren't found
+                # SilentlyContinue prevents the script from stopping if a glob finds zero files
                 Get-ChildItem -Path $destPath -Include $targets -Recurse | Remove-Item -Force -ErrorAction SilentlyContinue
                 Get-ChildItem -Path $destPath -Directory -Filter "CMakeFiles" -Recurse | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
                 Get-ChildItem -Path $destPath -Directory -Filter ".cmake" -Recurse | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
