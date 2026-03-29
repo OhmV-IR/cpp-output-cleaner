@@ -21,6 +21,7 @@ def call(String outputFolderPath, String dest = "package", boolean isDebug = fal
                 rm -f "$DEST_DIR"/*.cc
                 rm -f "$DEST_DIR"/*.h
                 rm -f "$DEST_DIR"/auth.json
+		rm -f "$DEST_DIR"/*.cmake
                 rm -f "$DEST_DIR"/.ninja_deps
                 rm -f "$DEST_DIR"/.ninja_log
                 rm -f "$DEST_DIR"/build.ninja
