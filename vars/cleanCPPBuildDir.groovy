@@ -1,73 +1,35 @@
-def call(String outputFolderPath, String dest = "package", boolean isDebug = false){
-  	echo "Cleaning up files from $outputFolderPath and placing a cleaned version in $dest"
-    if(isDebug == true){
-	    echo "Leaving debug files in place"
+def call(String outputFolderPath, String dest = "package", boolean isDebug = false) {
+    echo "Cleaning up files from $outputFolderPath and placing a cleaned version in $dest"
+    
+    if (isUnix()) {
+        sh """
+            rm -rf "${dest}"
+            mkdir -p "${dest}"
+            cp -r "${outputFolderPath}/." "${dest}"
+            find "${dest}" -name "*.h" -o -name "*.cc" -o -name "*.cmake" -o -name "*.log" -o -name "build.ninja" -o -name "compile_commands.json" -o -name "CMakeCache.txt" -delete
+            find "${dest}" -type d -name "CMakeFiles" -exec rm -rf {} +
+            find "${dest}" -type d -name ".cmake" -exec rm -rf {} +
+            find "${dest}" -type d -name "vcpkg_installed" -exec rm -rf {} +
+            ${isDebug ? "" : "find ${dest} -name '*.pdb' -delete"}
+        """
     } else {
-      echo "removing debug files"
+        pwsh """
+            \$destPath = "${dest}"
+            \$isDebug = ${isDebug ? '$true' : '$false'}
+
+            if (Test-Path \$destPath) { Remove-Item -Recurse -Force \$destPath }
+            New-Item -ItemType Directory -Force -Path \$destPath | Out-Null
+            Copy-Item -Recurse -Force "${outputFolderPath}/*" "\$destPath/"
+
+            # Define files to always remove
+            \$targets = @("*.h", "*.cc", "*.cmake", "*.log", "auth.json", "build.ninja", "*.ilk", "compile_commands.json", "CMakeCache.txt")
+            if (-\$not \$isDebug) { \$targets += "*.pdb" }
+
+            # Perform cleanup
+            Get-ChildItem -Path \$destPath -Include \$targets -Recurse | Remove-Item -Force -ErrorAction SilentlyContinue
+            Get-ChildItem -Path \$destPath -Directory -Filter "CMakeFiles" -Recurse | Remove-Item -Recurse -Force
+            Get-ChildItem -Path \$destPath -Directory -Filter ".cmake" -Recurse | Remove-Item -Recurse -Force
+            Get-ChildItem -Path \$destPath -Directory -Filter "vcpkg_installed" -Recurse | Remove-Item -Recurse -Force
+        """
     }
-	if(isUnix()){
-		sh """
-			rm -rf ${dest}
-			mkdir -p ${dest}
-          		cp -r ${outputFolderPath} ${dest}
-          		rm -f ${dest}/*.h
-          		rm -f ${dest}/*.cc
-          		rm -rf ${dest}/.cmake
-          		rm -f ${dest}/*.cmake
-          		rm -rf ${dest}/CMakeFiles
-              rm -f ${dest}/*.log
-              rm -rf ${dest}/vcpkg_installed
-              rm -f ${dest}/build.ninja
-              rm -f ${dest}/compile_commands.json
-              rm -f ${dest}/CMakeCache.txt
-              rm -rf ${dest}/CMakeFiles
-              (
-                cd ${dest}
-                find . -type d -name CMakeFiles -print0 |
-                while IFS= read -r -d '' dir; do
-                  parent="$(dirname "\$dir")"
-                  echo "Processing: \$parent"
-                  rm -rf \$parent/CMakeFiles
-                  rm -f \$parent/*.cmake
-                  rm -f \$parent/*.json
-                done
-              )
-	  """
-  } else {
-    pwsh """
-            New-Item -ItemType Directory -Force -Path "${dest}" | Out-Null
-    
-            Copy-Item -Recurse -Force "${outputFolderPath}/*" "${dest}/"
-    
-            Remove-Item -Force -ErrorAction SilentlyContinue `
-            ${dest}\\*.h,
-            ${dest}\\*.cc,
-            ${dest}\\*.cmake,
-            ${dest}\\*.log,
-            ${dest}\\auth.json,
-            ${dest}\\build.ninja,
-            ${dest}\\*.ilk,
-            ${dest}\\compile_commands.json,
-            ${dest}\\CMakeCache.txt
-
-
-            ${isDebug == false ? "Remove-Item -Force -ErrorAction SilentlyContinue ${dest}\\*.pdb," : ""}
-    
-            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue `
-            ${dest}\\.cmake,
-            ${dest}\\CMakeFiles,
-            ${dest}\\vcpkg_installed
-    
-            Get-ChildItem -Recurse -Directory -Filter "CMakeFiles" -Path "${dest}" | ForEach-Object {
-              \$parent = \$_.Parent.FullName
-              Write-Host "Processing: \$parent"
-              Remove-Item -Recurse -Force -ErrorAction SilentlyContinue \$_.FullName
-              Remove-Item -Force -ErrorAction SilentlyContinue `
-              (Join-Path \$parent "*.cmake"),
-              (Join-Path \$parent "*.ilk"),
-              (Join-Path \$parent "*.json")
-              ${isDebug == false ? "Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path \$parent "*.pdb") : "" }
-            }
-    """
-  }
 }
